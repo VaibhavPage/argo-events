@@ -69,7 +69,8 @@ type SensorController struct {
 	queue    workqueue.RateLimitingInterface
 
 	// plugins
-	signalProto plugin.ClientProtocol
+	signalProto  plugin.ClientProtocol
+	triggerProto plugin.ClientProtocol
 
 	// inventories
 	signalMu sync.Mutex
@@ -79,15 +80,16 @@ type SensorController struct {
 }
 
 // NewSensorController creates a new Controller
-func NewSensorController(rest *rest.Config, configMap string, signalProto plugin.ClientProtocol, log *zap.SugaredLogger) *SensorController {
+func NewSensorController(rest *rest.Config, cfg string, sigProto plugin.ClientProtocol, trigProto plugin.ClientProtocol, log *zap.SugaredLogger) *SensorController {
 	return &SensorController{
-		ConfigMap:       configMap,
+		ConfigMap:       cfg,
 		kubeConfig:      rest,
 		kubeClientset:   kubernetes.NewForConfigOrDie(rest),
 		sensorClientset: sensorclientset.NewForConfigOrDie(rest),
 		queue:           workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		signalProto:     signalProto,
+		signalProto:     sigProto,
 		signals:         make(map[string]shared.Signaler),
+		triggerProto:    trigProto,
 		log:             log,
 	}
 }

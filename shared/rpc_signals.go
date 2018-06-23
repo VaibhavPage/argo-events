@@ -6,9 +6,9 @@ import (
 	v1alpha1 "github.com/argoproj/argo-events/pkg/apis/sensor/v1alpha1"
 )
 
-type RPCClient struct{ client *rpc.Client }
+type RPCSignalClient struct{ client *rpc.Client }
 
-func (c *RPCClient) Start(signal *v1alpha1.Signal) (<-chan *v1alpha1.Event, error) {
+func (c *RPCSignalClient) Start(signal *v1alpha1.Signal) (<-chan *v1alpha1.Event, error) {
 	var resp <-chan *v1alpha1.Event
 	err := c.client.Call("Plugin.Start", map[string]interface{}{
 		"signal": signal,
@@ -19,7 +19,7 @@ func (c *RPCClient) Start(signal *v1alpha1.Signal) (<-chan *v1alpha1.Event, erro
 	return resp, nil
 }
 
-func (c *RPCClient) Stop() error {
+func (c *RPCSignalClient) Stop() error {
 	var resp error
 	err := c.client.Call("Plugin.Stop", map[string]interface{}{}, &resp)
 	if err != nil {
@@ -28,19 +28,19 @@ func (c *RPCClient) Stop() error {
 	return resp
 }
 
-// RPCServer is the RPC server that RPCClient talks to, conforming to
+// RPCSignalServer is the RPC server that RPCClient talks to, conforming to
 // the requirements of net/rpc
-type RPCServer struct {
+type RPCSignalServer struct {
 	// This is the real implementation
 	Impl Signaler
 }
 
-func (s *RPCServer) Start(args map[string]interface{}, resp *interface{}) error {
+func (s *RPCSignalServer) Start(args map[string]interface{}, resp *interface{}) error {
 	events, err := s.Impl.Start(args["signal"].(*v1alpha1.Signal))
 	*resp = events
 	return err
 }
 
-func (s *RPCServer) Stop(args map[string]interface{}, resp *interface{}) error {
+func (s *RPCSignalServer) Stop(args map[string]interface{}, resp *interface{}) error {
 	return s.Impl.Stop()
 }

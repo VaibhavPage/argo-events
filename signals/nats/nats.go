@@ -43,11 +43,11 @@ func (n *nats) Start(signal *v1alpha1.Signal) (<-chan *v1alpha1.Event, error) {
 	var err error
 	n.natsConn, err = natsio.Connect(signal.Stream.URL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to nats cluster url %s. Cause: %+v", signal.Stream.URL, err.Error())
+		return nil, fmt.Errorf("failed to connect to nats cluster url %s. Cause: %s", signal.Stream.URL, err)
 	}
 	n.natsSubscription, err = n.natsConn.ChanSubscribe(subject, n.msgCh)
 	if err != nil {
-		return nil, fmt.Errorf("failed to subscribe to nats subject %s. Cause: %+v", subject, err.Error())
+		return nil, fmt.Errorf("failed to subscribe to nats subject %s. Cause: %s", subject, err)
 	}
 	events := make(chan *v1alpha1.Event)
 	go n.listen(events)

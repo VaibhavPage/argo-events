@@ -10,10 +10,10 @@ import (
 	empty "github.com/golang/protobuf/ptypes/empty"
 )
 
-// GRPCClient is an implementation of Stream that talks over gRPC.
-type GRPCClient struct{ client SignalClient }
+// GRPCSignalClient is an implementation of SignalClient that talks over gRPC.
+type GRPCSignalClient struct{ client SignalClient }
 
-func (c *GRPCClient) Start(signal *v1alpha1.Signal) (<-chan *v1alpha1.Event, error) {
+func (c *GRPCSignalClient) Start(signal *v1alpha1.Signal) (<-chan *v1alpha1.Event, error) {
 	ch := make(chan *v1alpha1.Event, 32)
 	stream, err := c.client.Start(context.Background(), signal)
 	if err != nil {
@@ -38,18 +38,18 @@ func (c *GRPCClient) Start(signal *v1alpha1.Signal) (<-chan *v1alpha1.Event, err
 	return ch, nil
 }
 
-func (c *GRPCClient) Stop() error {
+func (c *GRPCSignalClient) Stop() error {
 	_, err := c.client.Stop(context.Background(), &empty.Empty{})
 	return err
 }
 
-// GRPCServer is the gRPC server that GRPCClient talks to.
-type GRPCServer struct {
+// GRPCSignalServer is the gRPC server that GRPCClient talks to.
+type GRPCSignalServer struct {
 	// This is the real implementation
 	Impl Signaler
 }
 
-func (s *GRPCServer) Start(signal *v1alpha1.Signal, stream Signal_StartServer) error {
+func (s *GRPCSignalServer) Start(signal *v1alpha1.Signal, stream Signal_StartServer) error {
 	events, err := s.Impl.Start(signal)
 	if err != nil {
 		return err
@@ -71,6 +71,6 @@ func (s *GRPCServer) Start(signal *v1alpha1.Signal, stream Signal_StartServer) e
 	}
 }
 
-func (s *GRPCServer) Stop(context.Context, *empty.Empty) (*empty.Empty, error) {
+func (s *GRPCSignalServer) Stop(context.Context, *empty.Empty) (*empty.Empty, error) {
 	return &empty.Empty{}, s.Impl.Stop()
 }

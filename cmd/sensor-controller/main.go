@@ -51,15 +51,23 @@ func main() {
 
 	// signal plugins
 	pluginFile := os.Getenv("SIGNAL_PLUGIN")
-	pluginClient := initPlugins(pluginFile)
-	defer pluginClient.Kill()
-
-	signalClient, err := pluginClient.Client()
+	sigPlugClient := initPlugins(pluginFile)
+	defer sigPlugClient.Kill()
+	signalClient, err := sigPlugClient.Client()
 	if err != nil {
 		panic(err)
 	}
 
-	controller := controller.NewSensorController(restConfig, configMap, signalClient, logger.Sugar())
+	// trigger plugins
+	pluginFile = os.Getenv("TRIGGER_PLUGIN")
+	trigPlugClient := initPlugins(pluginFile)
+	defer trigPlugClient.Kill()
+	triggerClient, err := trigPlugClient.Client()
+	if err != nil {
+		panic(err)
+	}
+
+	controller := controller.NewSensorController(restConfig, configMap, signalClient, triggerClient, logger.Sugar())
 	err = controller.ResyncConfig()
 	if err != nil {
 		panic(err)

@@ -37,6 +37,7 @@ func init() {
 func main() {
 	// these are the signals
 	nats := nats.New()
+	//cal := calendar.New()
 	/*
 		mqtt := mqtt.New()
 		kafka := kafka.New()
@@ -50,7 +51,8 @@ func main() {
 	plugin.Serve(&plugin.ServeConfig{
 		HandshakeConfig: shared.Handshake,
 		Plugins: map[string]plugin.Plugin{
-			"NATS": shared.NewPlugin(nats),
+			"NATS": shared.NewSignalPlugin(nats),
+			//"Calendar": shared.NewPlugin(cal),
 			/*
 				"MQTT":     shared.NewPlugin(mqtt),
 				"KAFKA":    shared.NewPlugin(kafka),

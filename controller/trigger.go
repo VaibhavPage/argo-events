@@ -19,6 +19,8 @@ package controller
 import (
 	"fmt"
 
+	"github.com/argoproj/argo-events/shared"
+
 	"github.com/nats-io/go-nats"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +30,6 @@ import (
 
 	"github.com/argoproj/argo-events/common"
 	"github.com/argoproj/argo-events/pkg/apis/sensor/v1alpha1"
-	"github.com/argoproj/argo-events/store"
 )
 
 // check all the signal statuses and if they are all resolved and constraints are met, let's create the trigger event
@@ -43,43 +44,32 @@ func (soc *sOperationCtx) processTrigger(trigger v1alpha1.Trigger) (*v1alpha1.No
 		node = soc.initializeNode(trigger.Name, v1alpha1.NodeTypeTrigger, v1alpha1.NodePhaseNew)
 	}
 
-	if node.Phase != v1alpha1.NodePhaseComplete {
+	if node.Phase == v1alpha1.NodePhaseNew {
 		err := soc.executeTrigger(trigger)
 		if err != nil {
 			return soc.markNodePhase(trigger.Name, v1alpha1.NodePhaseError, err.Error()), err
 		}
+		return soc.markNodePhase(trigger.Name, v1alpha1.NodePhaseComplete), nil
 	}
-	return soc.markNodePhase(trigger.Name, v1alpha1.NodePhaseComplete), nil
+	return soc.markNodePhase(trigger.Name, v1alpha1.NodePhaseActive), nil
 }
 
 // execute the trigger
 func (soc *sOperationCtx) executeTrigger(trigger v1alpha1.Trigger) error {
-	if trigger.Message != nil {
-		err := sendMessage(trigger.Message)
-		if err != nil {
-			soc.log.Warn("failed to send message. cause: %s", err.Error())
-			return err
-		}
+	plugin, err := soc.controller.triggerProto.Dispense(trigger.GetType())
+	if err != nil {
+		return err
 	}
-	if trigger.Resource != nil {
-		creds, err := store.GetCredentials(soc.controller.kubeClientset, soc.controller.Config.Namespace, trigger.Resource.ArtifactLocation)
-		if err != nil {
-			return err
-		}
-		reader, err := store.GetArtifactReader(trigger.Resource.ArtifactLocation, creds)
-		if err != nil {
-			return err
-		}
-		uObj, err := store.FetchArtifact(reader, trigger.Resource.GroupVersionKind)
-		if err != nil {
-			return err
-		}
-		err = soc.createResourceObject(trigger.Resource, uObj)
-		if err != nil {
-			return err
-		}
+	triggerer := plugin.(shared.Triggerer)
+
+	events := make([]*v1alpha1.Event, len(soc.events))
+	i := 0
+	for _, event := range soc.events {
+		events[i] = &event
+		i++
 	}
-	return nil
+
+	return triggerer.Fire(&trigger, events)
 }
 
 func sendMessage(message *v1alpha1.Message) error {

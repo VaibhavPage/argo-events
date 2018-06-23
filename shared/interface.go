@@ -39,9 +39,17 @@ var Handshake = plugin.HandshakeConfig{
 
 // PluginMap is the map of plugins we can dispense.
 var PluginMap = map[string]plugin.Plugin{
-	"NATS": &signalPlugin{},
-	//"Artifact": &signalPlugin{},
-	//todo: add more plugin here for all different types of signals
+	// signals
+	"NATS":     &signalPlugin{},
+	"KAFKA":    &signalPlugin{},
+	"AMQP":     &signalPlugin{},
+	"MQTT":     &signalPlugin{},
+	"Artifact": &signalPlugin{},
+	"Calendar": &signalPlugin{},
+	"Resource": &signalPlugin{},
+	"Webhook":  &signalPlugin{},
+
+	// todo: triggers
 }
 
 // Signaler is the interface for signaling
@@ -59,14 +67,24 @@ type ArtifactSignaler interface {
 	Read(*v1alpha1.ArtifactLocation, string) ([]byte, error)
 }
 
-// NewPlugin creates a base signal plugin
-func NewPlugin(impl Signaler) plugin.Plugin {
+// Triggerer is the interface for triggering
+type Triggerer interface {
+	Fire(*v1alpha1.Trigger, []*v1alpha1.Event) error
+}
+
+// NewSignalPlugin creates a base signal plugin
+func NewSignalPlugin(impl Signaler) plugin.Plugin {
 	return &signalPlugin{Impl: impl}
 }
 
-// NewArtifactPlugin creates an artifact plugin
-func NewArtifactPlugin(impl ArtifactSignaler) plugin.Plugin {
+// NewArtifactSignalPlugin creates an artifact signal plugin
+func NewArtifactSignalPlugin(impl ArtifactSignaler) plugin.Plugin {
 	return &signalPlugin{Impl: impl}
+}
+
+// NewTriggerPlugin creates a base trigger plugin
+func NewTriggerPlugin(impl Triggerer) plugin.Plugin {
+	return &triggerPlugin{Impl: impl}
 }
 
 // signalPlugin is the implementation of plugin.Plugin so we can serve/consume this.
@@ -75,18 +93,39 @@ type signalPlugin struct {
 }
 
 func (p *signalPlugin) Server(*plugin.MuxBroker) (interface{}, error) {
-	return &RPCServer{Impl: p.Impl}, nil
+	return &RPCSignalServer{Impl: p.Impl}, nil
 }
 
 func (p *signalPlugin) Client(b *plugin.MuxBroker, c *rpc.Client) (interface{}, error) {
-	return &RPCClient{client: c}, nil
+	return &RPCSignalClient{client: c}, nil
 }
 
 func (p *signalPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
-	RegisterSignalServer(s, &GRPCServer{Impl: p.Impl})
+	RegisterSignalServer(s, &GRPCSignalServer{Impl: p.Impl})
 	return nil
 }
 
 func (p *signalPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
-	return &GRPCClient{client: NewSignalClient(c)}, nil
+	return &GRPCSignalClient{client: NewSignalClient(c)}, nil
+}
+
+type triggerPlugin struct {
+	Impl Triggerer
+}
+
+func (p *triggerPlugin) Server(*plugin.MuxBroker) (interface{}, error) {
+	return &RPCTriggerServer{Impl: p.Impl}, nil
+}
+
+func (p *triggerPlugin) Client(b *plugin.MuxBroker, c *rpc.Client) (interface{}, error) {
+	return &RPCTriggerClient{client: c}, nil
+}
+
+func (p *triggerPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
+	RegisterTriggerServer(s, &GRPCTriggerServer{Impl: p.Impl})
+	return nil
+}
+
+func (p *triggerPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
+	return &GRPCTriggerClient{client: NewTriggerClient(c)}, nil
 }
